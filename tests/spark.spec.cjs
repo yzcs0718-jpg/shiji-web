@@ -93,3 +93,11 @@ test('manual retry resolves after initial error',async({page})=>{
  await page.locator('#cards [data-resolve]').click();
  await expect(page.locator('#cards')).toContainText('健身训练初学者教程');
 });
+
+test('pasted social share caption remains instead of generic metadata',async({page})=>{
+ await page.route('https://api.microlink.io/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'success',data:{title:'其他公开网页标题',description:'网页元描述'}})}));
+ await page.locator('#idea').fill('制作一杯好喝的冰咖啡 https://www.xiaohongshu.com/explore/abcdef');
+ await page.locator('#make').click();
+ await expect(page.locator('#cards')).toContainText('制作一杯好喝的冰咖啡');
+ await expect(page.locator('#cards')).toContainText('页面简介：网页元描述');
+});
