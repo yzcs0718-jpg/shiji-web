@@ -11,3 +11,38 @@ test('daily recommendation',async({page})=>{await page.locator('#idea').fill('�
 test('edit and delete',async({page})=>{await page.locator('#idea').fill('学习摄影');await page.locator('#make').click();page.on('dialog',async d=>{if(d.type()==='prompt')await d.accept('摄影练习');else await d.accept()});await page.locator('#cards [data-edit]').click();await expect(page.locator('#cards')).toContainText('摄影练习');await page.locator('#cards [data-remove]').click();await expect(page.locator('#cards .entry')).toHaveCount(0)});
 test('export backup downloads valid JSON',async({page})=>{await page.locator('#idea').fill('想做一份食谱');await page.locator('#make').click();const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#export').click()]);expect(download.suggestedFilename()).toContain('.json')});
 test('mobile layout usable',async({page})=>{await page.setViewportSize({width:375,height:812});await expect(page.locator('#make')).toBeVisible();await page.locator('#idea').fill('旅行攻略');await page.locator('#make').click();await expect(page.locator('#cards .entry')).toHaveCount(1)});
+
+test('completed challenge and reflection survive reload',async({page})=>{
+ await page.locator('#idea').fill('准备做一份旅行攻略');await page.locator('#make').click();
+ await page.locator('#cards [data-start]').click();await page.locator('#cards [data-day]').first().check();
+ page.once('dialog',d=>d.accept('最终完成了规划'));await page.locator('#cards [data-reflect]').click();
+ await page.reload();await expect(page.locator('#cards')).toContainText('最终完成了规划');
+ await expect(page.locator('#cards [data-day]').first()).toBeChecked();
+});
+test('creating then editing refreshes featured action card',async({page})=>{
+ await page.locator('#idea').fill('学习绘画');await page.locator('#make').click();
+ const vals=['绘画练习','创作设计',''];page.on('dialog',d=>d.accept(vals.shift()??''));
+ await page.locator('#cards [data-edit]').click();
+ await expect(page.locator('#result')).toContainText('绘画练习');
+});
+test('backup import restores task with independent challenge and progress',async({page})=>{
+ await page.locator('#idea').fill('学习摄影');await page.locator('#make').click();
+ await page.locator('#cards [data-start]').click();await page.locator('#cards [data-day]').first().check();
+ const backup=await page.evaluate(()=>localStorage.getItem('shiji_spark_v1'));
+ await page.evaluate(()=>localStorage.removeItem('shiji_spark_v1'));await page.reload();
+ await expect(page.locator('#cards .entry')).toHaveCount(0);
+ await page.locator('#upload').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(backup)});
+ await expect(page.locator('#cards .entry')).toHaveCount(1);
+ await expect(page.locator('#cards [data-day]').first()).toBeChecked();
+});
+test('html and script strings are safely escaped in cards',async({page})=>{
+ await page.locator('#idea').fill('<img src=x onerror=alert(1)> 旅行灵感');
+ await page.locator('#make').click();
+ await expect(page.locator('#cards img')).toHaveCount(0);
+ await expect(page.locator('#cards')).toContainText('<img src=x');
+});
+test('input over 8000 characters is rejected',async({page})=>{
+ await page.locator('#idea').fill('A'.repeat(8001));await page.locator('#make').click();
+ await expect(page.locator('#status')).toContainText('最多 8000');
+ await expect(page.locator('#cards .entry')).toHaveCount(0);
+});
