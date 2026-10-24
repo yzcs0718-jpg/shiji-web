@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - "spark/**"
+      - "tests/spark.spec.cjs"
       - ".github/workflows/spark-tests.yml"
   workflow_dispatch:
 permissions:
