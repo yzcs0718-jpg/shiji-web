@@ -46,3 +46,22 @@ test('input over 8000 characters is rejected',async({page})=>{
  await expect(page.locator('#status')).toContainText('最多 8000');
  await expect(page.locator('#cards .entry')).toHaveCount(0);
 });
+
+test('no runtime errors during common user journey',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.locator('#idea').fill('周末练习视频剪辑');await page.locator('#make').click();
+ await page.locator('#cards [data-start]').click();await page.locator('#cards [data-day]').first().check();
+ await page.locator('#cards [data-state]').selectOption('doing');await page.locator('#review').click();
+ expect(errors).toEqual([]);
+});
+test('data kept separate in fresh browser contexts',async({browser})=>{
+ const other=await browser.newContext();const page=await other.newPage();
+ await page.goto(url);await expect(page.locator('#cards .entry')).toHaveCount(0);
+ await other.close();
+});
+test('malformed JSON backup cannot overwrite existing records',async({page})=>{
+ await page.locator('#idea').fill('学习英语');await page.locator('#make').click();
+ await page.locator('#upload').setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from('{oops')});
+ await expect(page.locator('#status')).toContainText('导入失败');
+ await expect(page.locator('#cards .entry')).toHaveCount(1);
+});
