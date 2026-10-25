@@ -66,79 +66,16 @@ test('malformed JSON backup cannot overwrite existing records',async({page})=>{
  await expect(page.locator('#cards .entry')).toHaveCount(1);
 });
 
-test('public page metadata updates card when service returns real title',async({page})=>{
- await page.route('https://api.microlink.io/**',async route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'success',data:{title:'周末冰拿铁咖啡制作教程',description:'用燕麦奶制作冰拿铁'}})}));
- await page.locator('#idea').fill('https://example.com/coffee');await page.locator('#make').click();
- await expect(page.locator('#cards')).toContainText('周末冰拿铁咖啡制作教程');
- await expect(page.locator('#cards')).toContainText('页面简介：用燕麦奶制作冰拿铁');
- await expect(page.locator('#cards')).toContainText('美食料理');
+
+test('fully free smart plan updates locally without external API',async({page})=>{
+ let requests=[];page.on('request',r=>{if(/puter|microlink/.test(r.url()))requests.push(r.url())});
+ await page.locator('#idea').fill('做一杯咖啡');await page.locator('#make').click();
+ await page.locator('#smartPlan').click();
+ await expect(page.locator('#status')).toContainText('免费行动计划');
+ expect(requests).toEqual([]);
 });
-test('metadata error keeps original link and does not invent steps',async({page})=>{
- await page.route('https://api.microlink.io/**',async route=>route.fulfill({status:403,contentType:'application/json',body:'{}'}));
- await page.locator('#idea').fill('https://www.xiaohongshu.com/explore/1234567890');await page.locator('#make').click();
- await expect(page.locator('#status')).toContainText('未能自动解析');
- await expect(page.locator('#cards')).toContainText('小红书收藏链接');
+test('links remain saved with honest local-only explanation',async({page})=>{
+ await page.locator('#idea').fill('https://www.xiaohongshu.com/explore/1234');await page.locator('#make').click();
+ await expect(page.locator('#cards')).toContainText('已保存链接');
  await expect(page.locator('#cards ol.steps')).toHaveCount(0);
-});
-test('metadata generic login page is rejected',async({page})=>{
- await page.route('https://api.microlink.io/**',async route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'success',data:{title:'小红书',description:'登录'}})}));
- await page.locator('#idea').fill('https://www.xiaohongshu.com/explore/12345');await page.locator('#make').click();
- await expect(page.locator('#status')).toContainText('通用标题或登录页面');
- await expect(page.locator('#cards')).toContainText('待补充内容');
-});
-test('manual retry resolves after initial error',async({page})=>{
- let calls=0;await page.route('https://api.microlink.io/**',async route=>{calls++;await route.fulfill({status:calls===1?503:200,contentType:'application/json',body:calls===1?'{}':JSON.stringify({status:'success',data:{title:'健身训练初学者教程',description:'跑步入门和训练方法'}})})});
- await page.locator('#idea').fill('https://example.com/tutorial');await page.locator('#make').click();
- await expect(page.locator('#status')).toContainText('未能自动解析');
- await page.locator('#cards [data-resolve]').click();
- await expect(page.locator('#cards')).toContainText('健身训练初学者教程');
-});
-
-test('pasted social share caption remains instead of generic metadata',async({page})=>{
- await page.route('https://api.microlink.io/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'success',data:{title:'其他公开网页标题',description:'网页元描述'}})}));
- await page.locator('#idea').fill('制作一杯好喝的冰咖啡 https://www.xiaohongshu.com/explore/abcdef');
- await page.locator('#make').click();
- await expect(page.locator('#cards')).toContainText('制作一杯好喝的冰咖啡');
- await expect(page.locator('#cards')).toContainText('页面简介：网页元描述');
-});
-
-test('time budget persists and appears in generated plan',async({page})=>{
- await page.locator('#newMinutes').selectOption('15');
- await page.locator('#idea').fill('周末练习拍摄视频');await page.locator('#make').click();
- await expect(page.locator('#cards')).toContainText('每日计划：15分钟');
- await expect(page.locator('#cards')).toContainText('约');
- await page.reload();await expect(page.locator('#cards')).toContainText('每日计划：15分钟');
-});
-test('backup reminder can be shown and dismissed',async({page})=>{
- await page.locator('#backupReminder').click();
- await expect(page.locator('#backupNotice')).toBeVisible();
- await page.locator('#dismissBackup').click();
- await expect(page.locator('#backupNotice')).toBeHidden();
-});
-
-test('Puter AI generates and persists three actionable steps',async({page})=>{
- await page.addInitScript(()=>{window.puter={ai:{chat:async()=>({message:{content:'主题：制作咖啡\n1. 准备食材\n2. 调制咖啡\n3. 品尝并记录'}})}}});
- await page.locator('#idea').fill('制作咖啡');await page.locator('#make').click();
- await page.locator('#aiGenerate').click();
- await expect(page.locator('#status')).toContainText('AI 已生成');
- await expect(page.locator('#cards')).toContainText('准备食材');
- await page.reload();await expect(page.locator('#cards')).toContainText('调制咖啡');
-});
-test('Puter AI failure preserves original steps and resets button',async({page})=>{
- await page.addInitScript(()=>{window.puter={ai:{chat:async()=>{throw Error('quota exhausted')}}}});
- await page.locator('#idea').fill('练习视频剪辑');await page.locator('#make').click();
- const original=await page.locator('#cards ol.steps').innerText();
- await page.locator('#aiGenerate').click();
- await expect(page.locator('#status')).toContainText('AI 暂不可用');
- await expect(page.locator('#aiGenerate')).toBeEnabled();
- expect(await page.locator('#cards ol.steps').innerText()).toBe(original);
-});
-test('unresolved video URL does not call AI with fabricated content',async({page})=>{
- await page.route('https://api.microlink.io/**',route=>route.fulfill({status:403,body:'{}'}));
- await page.addInitScript(()=>{window.__aiCalls=0;window.puter={ai:{chat:async()=>{window.__aiCalls++;return '1. a\n2. b\n3. c'}}}});
- await page.locator('#idea').fill('https://www.xiaohongshu.com/explore/abc');await page.locator('#make').click();
- await expect(page.locator('#status')).toContainText('未能自动解析');
- await page.locator('#aiGenerate').click();
- await expect(page.locator('#status')).toContainText('AI 无法仅凭网址');
- expect(await page.evaluate(()=>window.__aiCalls)).toBe(0);
 });
