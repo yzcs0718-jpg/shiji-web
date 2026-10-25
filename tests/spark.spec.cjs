@@ -101,3 +101,17 @@ test('pasted social share caption remains instead of generic metadata',async({pa
  await expect(page.locator('#cards')).toContainText('制作一杯好喝的冰咖啡');
  await expect(page.locator('#cards')).toContainText('页面简介：网页元描述');
 });
+
+test('time budget persists and appears in generated plan',async({page})=>{
+ await page.locator('#newMinutes').selectOption('15');
+ await page.locator('#idea').fill('周末练习拍摄视频');await page.locator('#make').click();
+ await expect(page.locator('#cards')).toContainText('每日计划：15分钟');
+ await expect(page.locator('#cards')).toContainText('约');
+ await page.reload();await expect(page.locator('#cards')).toContainText('每日计划：15分钟');
+});
+test('backup reminder can be shown and dismissed',async({page})=>{
+ await page.locator('#backupReminder').click();
+ await expect(page.locator('#backupNotice')).toBeVisible();
+ await page.locator('#dismissBackup').click();
+ await expect(page.locator('#backupNotice')).toBeHidden();
+});
