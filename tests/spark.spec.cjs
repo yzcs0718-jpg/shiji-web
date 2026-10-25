@@ -115,3 +115,30 @@ test('backup reminder can be shown and dismissed',async({page})=>{
  await page.locator('#dismissBackup').click();
  await expect(page.locator('#backupNotice')).toBeHidden();
 });
+
+test('Puter AI generates and persists three actionable steps',async({page})=>{
+ await page.addInitScript(()=>{window.puter={ai:{chat:async()=>({message:{content:'主题：制作咖啡\n1. 准备食材\n2. 调制咖啡\n3. 品尝并记录'}})}}});
+ await page.locator('#idea').fill('制作咖啡');await page.locator('#make').click();
+ await page.locator('#aiGenerate').click();
+ await expect(page.locator('#status')).toContainText('AI 已生成');
+ await expect(page.locator('#cards')).toContainText('准备食材');
+ await page.reload();await expect(page.locator('#cards')).toContainText('调制咖啡');
+});
+test('Puter AI failure preserves original steps and resets button',async({page})=>{
+ await page.addInitScript(()=>{window.puter={ai:{chat:async()=>{throw Error('quota exhausted')}}}});
+ await page.locator('#idea').fill('练习视频剪辑');await page.locator('#make').click();
+ const original=await page.locator('#cards ol.steps').innerText();
+ await page.locator('#aiGenerate').click();
+ await expect(page.locator('#status')).toContainText('AI 暂不可用');
+ await expect(page.locator('#aiGenerate')).toBeEnabled();
+ expect(await page.locator('#cards ol.steps').innerText()).toBe(original);
+});
+test('unresolved video URL does not call AI with fabricated content',async({page})=>{
+ await page.route('https://api.microlink.io/**',route=>route.fulfill({status:403,body:'{}'}));
+ await page.addInitScript(()=>{window.__aiCalls=0;window.puter={ai:{chat:async()=>{window.__aiCalls++;return '1. a\n2. b\n3. c'}}}});
+ await page.locator('#idea').fill('https://www.xiaohongshu.com/explore/abc');await page.locator('#make').click();
+ await expect(page.locator('#status')).toContainText('未能自动解析');
+ await page.locator('#aiGenerate').click();
+ await expect(page.locator('#status')).toContainText('AI 无法仅凭网址');
+ expect(await page.evaluate(()=>window.__aiCalls)).toBe(0);
+});
