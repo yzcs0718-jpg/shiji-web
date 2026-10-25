@@ -107,3 +107,19 @@ test('promote inbox idea to executable task',async({page})=>{
  await expect(page.locator('#cards [data-state]').first()).toHaveValue('todo');
  await expect(page.locator('#todayBoard')).toContainText('咖啡制作');
 });
+
+test('focus timer supports duration pause and reset',async({page})=>{
+ await page.locator('#focusDuration').selectOption('15');
+ await expect(page.locator('#focusClock')).toHaveText('15:00');
+ await page.locator('#focusStart').click();
+ await expect(page.locator('#focusStatus')).toContainText('专注中');
+ await page.locator('#focusPause').click();
+ await expect(page.locator('#focusStatus')).toContainText('已暂停');
+ await page.locator('#focusReset').click();
+ await expect(page.locator('#focusClock')).toHaveText('15:00');
+});
+test('weekly review counts completed items',async({page})=>{
+ await page.locator('#idea').fill('周末练习摄影');await page.locator('#make').click();
+ await page.locator('#cards [data-state]').selectOption('done');
+ await expect(page.locator('#weeklyReview')).toContainText('完成 1 项');
+});
