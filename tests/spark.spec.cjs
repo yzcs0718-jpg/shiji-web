@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const url='http://127.0.0.1:8765/spark/';
 test.beforeEach(async ({page})=>{await page.goto(url);await expect(page.locator('#welcome')).toBeVisible();await page.locator('#welcomeStart').click()});
-test('first visit dialog and reopen',async({page})=>{await expect(page.locator('#welcome')).toBeHidden();await page.locator('#showGuide').click();await expect(page.locator('#welcome')).toBeVisible();await page.locator('#welcomeClose').click();await page.reload();await expect(page.locator('#welcome')).toBeHidden()});
+test('first visit dialog and reopen',async({page})=>{await expect(page.locator('#welcome')).toBeHidden();await page.locator('#showGuide').click();await expect(page.locator('#welcome')).toBeVisible();await expect(page.locator('#guideProgress')).toContainText('第 1 / 4 步');await page.locator('#welcomeStart').click();await expect(page.locator('#guideProgress')).toContainText('第 2 / 4 步');await page.locator('#guidePrev').click();await expect(page.locator('#guideProgress')).toContainText('第 1 / 4 步');await page.locator('#welcomeClose').click();await page.reload();await expect(page.locator('#welcome')).toBeHidden()});
 test('empty input guard',async({page})=>{await page.locator('#make').click();await expect(page.locator('#status')).toContainText('先粘贴')});
 test('create category and reload persistence',async({page})=>{await page.locator('#idea').fill('周末尝试做一杯燕麦奶咖啡');await page.locator('#newPriority').selectOption('high');await page.locator('#make').click();await expect(page.locator('#cards .entry')).toHaveCount(1);await expect(page.locator('#cards .entry')).toContainText('美食料理');await page.reload();await expect(page.locator('#cards .entry')).toHaveCount(1)});
 test('search and filters',async({page})=>{await page.locator('#idea').fill('周末咖啡食谱');await page.locator('#make').click();await page.locator('#search').fill('不存在的词');await expect(page.locator('#cards .entry')).toHaveCount(0);await page.locator('#search').fill('咖啡');await expect(page.locator('#cards .entry')).toHaveCount(1);await page.locator('#priority').selectOption('high');await expect(page.locator('#cards .entry')).toHaveCount(0)});
@@ -123,3 +123,5 @@ test('weekly review counts completed items',async({page})=>{
  await page.locator('#cards [data-state]').selectOption('done');
  await expect(page.locator('#weeklyReview')).toContainText('完成 1 项');
 });
+
+test('four onboarding steps can be completed',async({page})=>{await page.locator('#showGuide').click();for(let i=2;i<=4;i++){await page.locator('#welcomeStart').click();await expect(page.locator('#guideProgress')).toContainText('第 '+i+' / 4 步')}await page.locator('#welcomeStart').click();await expect(page.locator('#welcome')).toBeHidden()});
