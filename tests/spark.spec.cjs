@@ -79,3 +79,31 @@ test('links remain saved with honest local-only explanation',async({page})=>{
  await expect(page.locator('#cards')).toContainText('已保存链接');
  await expect(page.locator('#cards ol.steps')).toHaveCount(0);
 });
+
+test('quick save goes to inbox without forcing task steps',async({page})=>{
+ await page.locator('#idea').fill('尝试制作健康早餐');
+ await page.locator('#quickSave').click();
+ await expect(page.locator('#cards .entry')).toHaveCount(1);
+ await expect(page.locator('#cards ol.steps')).toHaveCount(0);
+ await expect(page.locator('#stats')).toContainText('收件箱 1');
+ await page.locator('#view').selectOption('inbox');
+ await expect(page.locator('#cards .entry')).toHaveCount(1);
+ await page.reload();
+ await page.locator('#view').selectOption('inbox');
+ await expect(page.locator('#cards .entry')).toHaveCount(1);
+});
+test('inbox ideas do not affect daily task recommendation',async({page})=>{
+ await page.locator('#idea').fill('学习剪辑');
+ await page.locator('#quickSave').click();
+ await expect(page.locator('#todayBoard')).toContainText('暂无待执行任务');
+ await page.locator('#review').click();
+ await expect(page.locator('#extras')).toContainText('没有待执行');
+});
+test('promote inbox idea to executable task',async({page})=>{
+ await page.locator('#idea').fill('咖啡制作');
+ await page.locator('#quickSave').click();
+ await page.locator('#cards [data-promote]').click();
+ await expect(page.locator('#stats')).toContainText('收件箱 0');
+ await expect(page.locator('#cards [data-state]').first()).toHaveValue('todo');
+ await expect(page.locator('#todayBoard')).toContainText('咖啡制作');
+});
